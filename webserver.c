@@ -1,8 +1,8 @@
 /**
  * @file webserver.c
- * @author Matthew Epshteing (epshteinmatthew@gmail.com)
+ * @author Matthew Epshtein (epshteinmatthew@gmail.com)
  * @brief The server program for SHtack, the russian roulette for nerds
- * @version 1.0
+ * @version 1.2
  * @date 2022-08-07
  *
  * @copyright Copyright (c) 2022
@@ -15,10 +15,14 @@
 #include <malloc.h> //memory allocation
 #include <time.h>   //self explanatory...
 
-//vars
+// vars
 #define PORT 8000
 #define NAME "Shtack"
 #define VERSION "1.0"
+
+struct _u_instance instance;
+// instace of ulfius. Needs to be declared in global scope for dynapathing(see route_push())
+// Note: this variable is initalized. Any function that uses this MUST be called AFTER ulfius_init_instance()
 
 struct linked_list_node
 {
@@ -27,6 +31,7 @@ struct linked_list_node
 };
 
 struct linked_list_node *HEAD = NULL;
+
 
 /**
  * @brief Santizes the command, removes sudo and &&
@@ -79,12 +84,13 @@ int push(char *item)
  */
 char *pop()
 {
-    if(HEAD == NULL){
-        return NULL; 
+    if (HEAD == NULL)
+    {
+        return NULL;
     }
     if (HEAD->next == NULL)
     {
-      
+
         char *rtrnd = strdup(HEAD->item);
         HEAD = NULL;
         return rtrnd;
@@ -93,12 +99,11 @@ char *pop()
     while (current->next->next != NULL)
     {
         current = current->next;
-    } 
+    }
     char *rtrnd = strdup(current->next->item);
     current->next = NULL;
     return rtrnd;
 }
-
 
 /**
  * @brief Concatenates an array of strings.
@@ -149,15 +154,27 @@ int route(const struct _u_request *request, struct _u_response *response, void *
 
 int route_push(const struct _u_request *request, struct _u_response *response, void *user_data)
 {
-    const char *c1 = sanitize(u_map_get(request->map_post_body, "command_1"));
-    const char *c2 = sanitize(u_map_get(request->map_post_body, "command_2"));
-    if (c1 == NULL || c2 == NULL)
+    const char *c1 = sanitize(u_map_get(request->map_post_body, "command"));
+    if (c1 == NULL)
     {
         ulfius_set_string_body_response(response, 400, "Not enough commands given. Try again.");
         return U_CALLBACK_CONTINUE;
     }
-    push((char *) c1);
-    push((char *) c2);
+    push((char *)c1);
+    if (strcmp(request->url_path, "/push") == 0)
+    {
+        int num = random();
+        char tstr[64];
+        sprintf(tstr, "%d", num);
+        char *responsestr = strs_cat((const char *[]){"/push/", (char *)strdup(tstr)});
+        ulfius_add_endpoint_by_val(&instance, "POST", responsestr, NULL, 0, &route_push, NULL);
+
+        ulfius_set_string_body_response(response, 303, responsestr);
+        // please god
+
+        return U_CALLBACK_CONTINUE;
+    }
+    ulfius_remove_endpoint_by_val(&instance, "POST", request->url_path, NULL);
     ulfius_set_string_body_response(response, 303, "/pop");
     return U_CALLBACK_CONTINUE;
 }
@@ -180,7 +197,8 @@ int route_pop(const struct _u_request *request, struct _u_response *response, vo
  */
 int main(void)
 {
-    struct _u_instance instance;
+    // intialize randm seed
+    srand(time(0));
 
     // Initialize instance with the port number
     if (ulfius_init_instance(&instance, PORT, NULL, NULL) != U_OK)
