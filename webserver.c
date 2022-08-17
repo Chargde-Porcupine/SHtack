@@ -161,7 +161,7 @@ int route_push(const struct _u_request *request, struct _u_response *response, v
         return U_CALLBACK_CONTINUE;
     }
     push((char *)c1);
-    if (strcmp(request->url_path, "/push") == 0)
+    if (strcmp(request->url_path, "/push") == 0 || strcmp(request->url_path, "/push/") == 0)
     {
         int num = random();
         char tstr[64];
