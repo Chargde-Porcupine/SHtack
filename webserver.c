@@ -7,7 +7,21 @@
  *
  * @copyright Copyright (c) 2022
  *
- * gcc -o webserver webserver.c -lulfius
+ * 
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+ * "gcc -o webserver webserver.c -lulfius" to run
  */
 #include <stdio.h>  //inputs and outputs
 #include <ulfius.h> //server library
@@ -32,6 +46,12 @@ struct linked_list_node
 
 struct linked_list_node *HEAD = NULL;
 
+char *randpath(char *start){
+    int num = random();
+    char tstr[64];
+    sprintf(tstr, "%d", num);
+    return strs_cat((const char *[]){"/",start,"/", (char *)strdup(tstr)});
+}
 
 /**
  * @brief Santizes the command, removes sudo and &&
@@ -163,19 +183,15 @@ int route_push(const struct _u_request *request, struct _u_response *response, v
     push((char *)c1);
     if (strcmp(request->url_path, "/push") == 0 || strcmp(request->url_path, "/push/") == 0)
     {
-        int num = random();
-        char tstr[64];
-        sprintf(tstr, "%d", num);
-        char *responsestr = strs_cat((const char *[]){"/push/", (char *)strdup(tstr)});
+        char *responsestr = randpath("push");
         ulfius_add_endpoint_by_val(&instance, "POST", responsestr, NULL, 0, &route_push, NULL);
-
         ulfius_set_string_body_response(response, 303, responsestr);
-        // please god
-
         return U_CALLBACK_CONTINUE;
     }
+    char *responsestr = randpath("pop");
     ulfius_remove_endpoint_by_val(&instance, "POST", request->url_path, NULL);
-    ulfius_set_string_body_response(response, 303, "/pop");
+    ulfius_add_endpoint_by_val(&instance, "GET", responsestr, NULL, 0, &route_pop, NULL);
+    ulfius_set_string_body_response(response, 303, responsestr);
     return U_CALLBACK_CONTINUE;
 }
 
@@ -188,6 +204,8 @@ int route_pop(const struct _u_request *request, struct _u_response *response, vo
         ulfius_set_string_body_response(response, 500, "The SHtack is empty. /push to add to the Shtack.");
         return U_CALLBACK_CONTINUE;
     }
+
+    ulfius_remove_endpoint_by_val(&instance, "GET", request->url_path, NULL);
     ulfius_set_string_body_response(response, 200, popped);
     return U_CALLBACK_CONTINUE;
 }
@@ -211,8 +229,6 @@ int main(void)
     ulfius_add_endpoint_by_val(&instance, "GET", "/", NULL, 0, &route, NULL);
 
     ulfius_add_endpoint_by_val(&instance, "POST", "/push", NULL, 0, &route_push, NULL);
-
-    ulfius_add_endpoint_by_val(&instance, "GET", "/pop", NULL, 0, &route_pop, NULL);
 
     // Start the framework
     if (ulfius_start_framework(&instance) == U_OK)
