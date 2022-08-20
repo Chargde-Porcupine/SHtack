@@ -46,12 +46,7 @@ struct linked_list_node
 
 struct linked_list_node *HEAD = NULL;
 
-char *randpath(char *start){
-    int num = random();
-    char tstr[64];
-    sprintf(tstr, "%d", num);
-    return strs_cat((const char *[]){"/",start,"/", (char *)strdup(tstr)});
-}
+
 
 /**
  * @brief Santizes the command, removes sudo and &&
@@ -122,6 +117,7 @@ char *pop()
     }
     char *rtrnd = strdup(current->next->item);
     current->next = NULL;
+    free(current->next);
     return rtrnd;
 }
 
@@ -152,6 +148,13 @@ char *strs_cat(const char **strs)
     return output;
 }
 
+char *randpath(char *start){
+    int num = random();
+    char tstr[64];
+    sprintf(tstr, "%d", num);
+    return strs_cat((const char *[]){"/",start,"/", (char *)strdup(tstr), ""});
+}
+
 char *get_time(void)
 {
     time_t mytime = time(NULL);
@@ -172,28 +175,6 @@ int route(const struct _u_request *request, struct _u_response *response, void *
     return U_CALLBACK_CONTINUE;
 }
 
-int route_push(const struct _u_request *request, struct _u_response *response, void *user_data)
-{
-    const char *c1 = sanitize(u_map_get(request->map_post_body, "command"));
-    if (c1 == NULL)
-    {
-        ulfius_set_string_body_response(response, 400, "Not enough commands given. Try again.");
-        return U_CALLBACK_CONTINUE;
-    }
-    push((char *)c1);
-    if (strcmp(request->url_path, "/push") == 0 || strcmp(request->url_path, "/push/") == 0)
-    {
-        char *responsestr = randpath("push");
-        ulfius_add_endpoint_by_val(&instance, "POST", responsestr, NULL, 0, &route_push, NULL);
-        ulfius_set_string_body_response(response, 303, responsestr);
-        return U_CALLBACK_CONTINUE;
-    }
-    char *responsestr = randpath("pop");
-    ulfius_remove_endpoint_by_val(&instance, "POST", request->url_path, NULL);
-    ulfius_add_endpoint_by_val(&instance, "GET", responsestr, NULL, 0, &route_pop, NULL);
-    ulfius_set_string_body_response(response, 303, responsestr);
-    return U_CALLBACK_CONTINUE;
-}
 
 int route_pop(const struct _u_request *request, struct _u_response *response, void *user_data)
 {
@@ -209,6 +190,32 @@ int route_pop(const struct _u_request *request, struct _u_response *response, vo
     ulfius_set_string_body_response(response, 200, popped);
     return U_CALLBACK_CONTINUE;
 }
+
+int route_push(const struct _u_request *request, struct _u_response *response, void *user_data)
+{
+    const char *c1 = sanitize(u_map_get(request->map_post_body, "command"));
+    if (c1 == NULL)
+    {
+        ulfius_set_string_body_response(response, 400, "Not enough commands given. Try again.");
+        return U_CALLBACK_CONTINUE;
+    }
+    push((char *)c1);
+    if (strcmp(request->url_path, "/push") == 0 || strcmp(request->url_path, "/push/") == 0)
+    {
+        char *responsestr = randpath("push");
+        ulfius_add_endpoint_by_val(&instance, "POST", responsestr, NULL, 0, &route_push, NULL);
+        ulfius_set_string_body_response(response, 303, responsestr);
+        return U_CALLBACK_CONTINUE;
+        free(responsestr);
+    }
+    char *responsestr = randpath("pop");
+    ulfius_remove_endpoint_by_val(&instance, "POST", request->url_path, NULL);
+    ulfius_add_endpoint_by_val(&instance, "GET", responsestr, NULL, 0, &route_pop, NULL);
+    ulfius_set_string_body_response(response, 303, responsestr);
+    free(responsestr);
+    return U_CALLBACK_CONTINUE;
+}
+
 
 /**
  * main function
